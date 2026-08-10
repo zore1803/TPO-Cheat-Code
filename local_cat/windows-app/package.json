@@ -1,0 +1,51 @@
+{
+  "name": "ai-auto-marker-windows",
+  "version": "1.0.0",
+  "description": "Windows application version of the AI Auto Marker Chrome extension",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "package": "electron-packager . \"AI Auto Marker\" --platform=win32 --arch=x64 --out=dist --overwrite",
+    "create-installer": "node build-installer.js",
+    "package-and-install": "npm run package && npm run create-installer"
+  },
+  "build": {
+    "appId": "com.ai-auto-marker.app",
+    "productName": "AI Auto Marker",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "sign": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "axios": "^1.6.0",
+    "screenshot-desktop": "^1.12.7"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.0.0",
+    "electron-installer-windows": "^3.0.0",
+    "electron-packager": "^17.1.2"
+  },
+  "keywords": [
+    "ai",
+    "mcq",
+    "screenshot",
+    "ocr"
+  ],
+  "author": "AI Auto Marker Team",
+  "license": "MIT"
+}
