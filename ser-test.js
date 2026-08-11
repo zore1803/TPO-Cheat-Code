@@ -379,7 +379,9 @@ app.post('/solve-mcqs-base64', async (req, res) => {
         "temperature": 0,
         "top_p": 1,
         "stream": false,
-        "stop": null
+        "stop": null,
+        "reasoning_effort": "none",
+        "max_tokens": 800
       });
 
       const aiCallEndTime = Date.now();

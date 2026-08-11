@@ -255,7 +255,9 @@ app.post('/solve-mcqs-base64', async (req, res) => {
         "temperature": 0,
         "top_p": 1,
         "stream": false,
-        "stop": null
+        "stop": null,
+        "reasoning_effort": "none",
+        "max_tokens": 800
       });
 
       const aiCallEndTime = Date.now();
@@ -663,7 +665,8 @@ Rules:
       ],
       model: "qwen/qwen3.6-27b",
       temperature: 0,
-      max_tokens: 1000
+      max_tokens: 1000,
+      reasoning_effort: "none"
     });
 
     const extractedData = visionResponse.choices[0].message.content;
