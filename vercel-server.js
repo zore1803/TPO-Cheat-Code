@@ -286,7 +286,8 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       success: true,
       message: 'Image processed successfully with Groq AI',
       aiAnswers: finalans.content,
-      modelUsed: modelName // Include model info in response
+      modelUsed: modelName, // Include model info in response
+      debugExtraction: aiAnswers // TEMP DEBUG - remove after diagnosing production issue
     };
 
     console.log(aiAnswers);
