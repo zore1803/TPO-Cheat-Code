@@ -25,7 +25,8 @@
     "razorpay": "^2.9.0",
     "redis": "^5.10.0",
     "sarvamai": "^0.1.10",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
