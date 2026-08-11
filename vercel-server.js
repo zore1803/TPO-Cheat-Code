@@ -94,7 +94,10 @@ try {
     password: process.env.REDIS_PASSWORD,
     socket: {
       host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6379
+      port: process.env.REDIS_PORT || 6379,
+      tls: process.env.REDIS_TLS === 'true',
+      connectTimeout: 5000,
+      reconnectStrategy: (retries) => retries > 2 ? false : Math.min(retries * 100, 1000)
     }
   });
 
