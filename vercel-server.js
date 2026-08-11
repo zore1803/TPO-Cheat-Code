@@ -119,7 +119,7 @@ try {
 async function getModelForToken(token) {
   // If no token is provided, use the default llama model
   if (!token) {
-    return "llama-3.3-70b-versatile";
+    return "openai/gpt-oss-120b";
   }
 
   if (useRedis && redisClient) {
@@ -151,7 +151,7 @@ async function getModelForToken(token) {
   }
 
   // If token is provided but not found or count is zero, use default llama model
-  return "llama-3.3-70b-versatile";
+  return "openai/gpt-oss-120b";
 }
 
 // Function to log token usage
@@ -329,7 +329,7 @@ app.post('/solveq', async (req, res) => {
     }
 
     const solverModel = new ChatGroq({
-      model: "llama-3.3-70b-versatile", // or any default model
+      model: "openai/gpt-oss-120b", // or any default model
       temperature: 0,
       top_p: 1,
       apiKey: process.env.GROQ_API_KEY,
@@ -371,7 +371,7 @@ app.get('/solveq', async (req, res) => {
     }
 
     const solverModel = new ChatGroq({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       temperature: 0,
       top_p: 1,
       apiKey: process.env.GROQ_API_KEY,

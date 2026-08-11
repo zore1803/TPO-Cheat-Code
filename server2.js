@@ -133,7 +133,7 @@ try {
 async function getModelForToken(token) {
   // If no token is provided, use the default llama model
   if (!token) {
-    return "llama-3.3-70b-versatile";
+    return "openai/gpt-oss-120b";
   }
   
   if (useRedis && redisClient) {
@@ -165,7 +165,7 @@ async function getModelForToken(token) {
   }
   
   // If token is provided but not found or count is zero, use default llama model
-  return "llama-3.3-70b-versatile";
+  return "openai/gpt-oss-120b";
 }
 
 // Function to log token usage
