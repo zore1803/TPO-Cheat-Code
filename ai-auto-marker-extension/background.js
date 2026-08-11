@@ -290,10 +290,10 @@ function showResponseInPopup(responseText) {
           const windowOptions = {
             url: 'popup.html?popupId=' + popupId,
             type: 'popup',
-            width: 120, // Increased width for better content display
-            height: 80, // Increased height for better content display
+            width: 320,
+            height: 240,
             left: workArea.left + 40, // 20 pixels from the left edge
-            top: workArea.top + workArea.height - 80, // Adjusted for new height
+            top: workArea.top + workArea.height - 240, // Adjusted for new height
             //focused: true
           };
           
@@ -315,8 +315,8 @@ function createPopupWindow(popupId, windowOptions) {
   const defaultOptions = {
     url: 'popup.html?popupId=' + popupId,
     type: 'popup',
-    width: 120, // Increased width for better content display
-    height: 80, // Increased height for better content display
+    width: 320,
+    height: 240,
     focused: true
   };
   
@@ -329,8 +329,8 @@ function createPopupWindow(popupId, windowOptions) {
       console.log('Popup window created:', window);
       // Get the user-configured close timing
       chrome.storage.sync.get(['closeTiming'], function(result) {
-        // Default to 3 seconds if not set
-        const closeTiming = result.closeTiming !== undefined ? result.closeTiming : 3000;
+        // Default to 8 seconds if not set
+        const closeTiming = result.closeTiming !== undefined ? result.closeTiming : 8000;
         
         // Only set timeout if closeTiming is not 0 (never close)
         if (closeTiming > 0) {
