@@ -7,8 +7,6 @@ import { ImageAnnotatorClient } from '@google-cloud/vision';
 import { ChatGroq } from "@langchain/groq";
 import { createClient } from 'redis';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import Razorpay from 'razorpay';
-import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
 // Load environment variables
@@ -17,12 +15,6 @@ dotenv.config();
 // Initialize Groq client
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
-});
-
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 // Function to send email with premium token
@@ -203,125 +195,6 @@ app.use('/', express.static(path.join(process.cwd(), 'marketing')));
 app.use('/fonts', express.static(path.join(process.cwd(), 'fonts')));
 
 
-
-// Endpoint to create Razorpay order
-app.post('/create-order', async (req, res) => {
-  try {
-    const { email, amount, plan, uses } = req.body;
-
-    if (!email || !amount) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email and amount are required'
-      });
-    }
-
-    // Create order options
-    const options = {
-      amount: amount, // Amount in paise from request
-      currency: 'INR',
-      receipt: 'receipt_' + Date.now(),
-      notes: {
-        email: email,
-        plan: plan || 'Pro Plan',
-        uses: uses || 50
-      }
-    };
-
-    // Create order
-    const order = await razorpay.orders.create(options);
-
-    // Add Razorpay key ID to the response
-    order.razorpayKeyId = process.env.RAZORPAY_KEY_ID;
-    order.email = email;
-
-    res.json({
-      success: true,
-      order: order
-    });
-  } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create order: ' + error.message
-    });
-  }
-});
-
-// Endpoint to verify payment
-app.post('/verify-payment', async (req, res) => {
-  try {
-    const { paymentResponse, email, plan, amount, uses } = req.body;
-
-    if (!paymentResponse || !email) {
-      return res.status(400).json({
-        success: false,
-        error: 'Payment response and email are required'
-      });
-    }
-
-    // Verify payment signature
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = paymentResponse;
-
-    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
-    hmac.update(razorpay_order_id + '|' + razorpay_payment_id);
-    const generatedSignature = hmac.digest('hex');
-
-    if (generatedSignature !== razorpay_signature) {
-      return res.status(400).json({
-        success: false,
-        error: 'Payment verification failed'
-      });
-    }
-
-    // Determine token count based on plan or uses parameter
-    let tokenCount = 50; // Default for Pro Plan
-    if (uses) {
-      tokenCount = uses;
-    } else if (plan === 'Premium Plan' || amount === 6900) {
-      tokenCount = 100;
-    } else if (plan === 'Pro Plan' || amount === 3900) {
-      tokenCount = 50;
-    }
-
-    // Payment verified, create premium token
-    const token = 'premium_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
-    const modelName = 'openai/gpt-oss-20b';
-
-    if (useRedis && redisClient) {
-      // Store token data in Redis with ChatGPT model
-      await redisClient.set(token, JSON.stringify({ model: modelName, count: tokenCount }));
-    } else {
-      // Store token data in memory
-      tokenModelMap.set(token, { model: modelName, count: tokenCount });
-    }
-
-    // Send email with token
-    try {
-      await sendTokenEmail(email, token);
-
-      res.json({
-        success: true,
-        message: 'Payment verified successfully. Your premium token has been sent to your email.',
-        token: token
-      });
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      // Still respond with success since payment was verified, but note email issue
-      res.json({
-        success: true,
-        message: 'Payment verified successfully. However, there was an issue sending the email. Please contact support with your payment ID for your token.',
-        token: token
-      });
-    }
-  } catch (error) {
-    console.error('Error verifying payment:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to verify payment: ' + error.message
-    });
-  }
-});
 
 // Endpoint to handle base64 image data directly (no file system operations)
 app.post('/solve-mcqs-base64', async (req, res) => {
