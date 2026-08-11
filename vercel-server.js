@@ -257,7 +257,7 @@ app.post('/solve-mcqs-base64', async (req, res) => {
         "stream": false,
         "stop": null,
         "reasoning_effort": "none",
-        "max_tokens": 800
+        "max_tokens": 2000
       });
 
       const aiCallEndTime = Date.now();
