@@ -275,6 +275,7 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       model: modelName,
       temperature: 0,
       top_p: 1,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY, // Use environment variable only
     });
 
@@ -332,6 +333,7 @@ app.post('/solveq', async (req, res) => {
       model: "openai/gpt-oss-120b", // or any default model
       temperature: 0,
       top_p: 1,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY,
     });
 
@@ -374,6 +376,7 @@ app.get('/solveq', async (req, res) => {
       model: "openai/gpt-oss-120b",
       temperature: 0,
       top_p: 1,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY,
     });
 
@@ -681,6 +684,7 @@ Rules:
       model: modelName,
       temperature: 0,
       top_p: 1,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY
     });
 

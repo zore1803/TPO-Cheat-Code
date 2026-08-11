@@ -255,6 +255,7 @@ app.post('/solve-mcqs', upload.single('screenshot'), async (req, res) => {
     const model = new ChatGroq({
       model: modelName,
       temperature: 0.7,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY,
     });
     
@@ -431,6 +432,7 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       model: modelName,
       temperature: 0,
       top_p: 1,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY,
     });
 
@@ -573,6 +575,7 @@ app.post('/solve-mcqs-base64-Gemini', async (req, res) => {
     const model = new ChatGroq({
       model: modelName,
       temperature: 0.5,
+      maxTokens: 1500,
       apiKey: process.env.GROQ_API_KEY,
     });
     
