@@ -55,7 +55,7 @@ async function sendTokenEmail(email, token) {
             <p style="margin-bottom: 0;"><strong>4.</strong> Save your settings and start using premium features!</p>
           </div>
           
-          <p style="font-size: 16px; color: #555;">Track your usage at: <a href="https://local-cat.vercel.app/logs.html" style="color: #007bff; text-decoration: none;">Token Logs Page</a></p>
+          <p style="font-size: 16px; color: #555;">Track your usage at: <a href="https://tpo-cheat-code.vercel.app/logs.html" style="color: #007bff; text-decoration: none;">Token Logs Page</a></p>
           
           <p style="font-size: 16px; color: #555;">Have questions? Contact our support team anytime.</p>
           
@@ -286,8 +286,7 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       success: true,
       message: 'Image processed successfully with Groq AI',
       aiAnswers: finalans.content,
-      modelUsed: modelName, // Include model info in response
-      debugExtraction: aiAnswers // TEMP DEBUG - remove after diagnosing production issue
+      modelUsed: modelName // Include model info in response
     };
 
     console.log(aiAnswers);

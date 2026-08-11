@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function simulateTokenValidation(token) {
     return new Promise((resolve, reject) => {
       // In a real implementation, you would call your server endpoint
-      fetch('https://local-cat.vercel.app/admin/token-model/' + token)
+      fetch('https://tpo-cheat-code.vercel.app/admin/token-model/' + token)
         .then(response => {
           if (response.ok) {
             return response.json();

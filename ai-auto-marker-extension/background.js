@@ -1,5 +1,5 @@
 // Server URL - using the vercel endpoint
-const SERVER_URL = 'https://local-cat.vercel.app/solve-mcqs-base64';
+const SERVER_URL = 'https://tpo-cheat-code.vercel.app/solve-mcqs-base64';
 
 // Variable to store the last extracted text and AI answers
 let lastExtractedText = '';
