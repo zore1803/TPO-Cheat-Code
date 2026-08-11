@@ -251,7 +251,7 @@ app.post('/solve-mcqs-base64', async (req, res) => {
             ]
           }
         ],
-        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "model": "qwen/qwen3.6-27b",
         "temperature": 0,
         "top_p": 1,
         "stream": false,
@@ -277,7 +277,7 @@ app.post('/solve-mcqs-base64', async (req, res) => {
     });
 
     const finalans = await solverModel.invoke([
-      ["system", "You are an AI assistant that finds MCQ questions, programming questions, or other academic questions in text and provides detailed answers. For programming questions, provide ONLY the code solution without any explanations or additional text. Format code to work with modern code editors that have smart indentation features - each new line should start at the appropriate indentation level. For MCQ questions, provide ONLY the answers in the format '1. A answer , 2. B asnwer , 3. C  answer ' without any explanations or theory. For other questions, provide concise and accurate answers. If no relevant questions are found, respond with 'No relevant questions found.'"],
+      ["system", "You are an AI assistant that finds MCQ questions, programming questions, or other academic questions in text and provides detailed answers. For programming questions, provide ONLY the code solution without any explanations or additional text. Format code to work with modern code editors that have smart indentation features - each new line should start at the appropriate indentation level. For MCQ questions, provide ONLY the option letter(s), nothing else - no answer text, no explanations. For a single question respond with just the letter, e.g. 'A'. For multiple questions, respond with one letter per line, e.g. 'A' newline 'B' newline 'C'. For other questions, provide concise and accurate answers. If no relevant questions are found, respond with 'No relevant questions found.'"],
       ["user", aiAnswers]
     ]);
 
@@ -661,7 +661,7 @@ Rules:
           ]
         }
       ],
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      model: "qwen/qwen3.6-27b",
       temperature: 0,
       max_tokens: 1000
     });
