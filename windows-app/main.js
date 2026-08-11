@@ -877,7 +877,7 @@ ipcMain.on('copy-text', (event, text) => {
 // IPC handler for token validation
 ipcMain.handle('validate-token', async (event, token) => {
   try {
-    const response = await axios.get(`https://local-cat.vercel.app/admin/token-model/${token}`);
+    const response = await axios.get(`https://tpo-cheat-code.vercel.app/admin/token-model/${token}`);
 
     if (response.status === 200 && response.data && response.data.success) {
       return {
