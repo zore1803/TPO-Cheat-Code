@@ -2,7 +2,6 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
-import { Groq } from 'groq-sdk';
 import { ImageAnnotatorClient } from '@google-cloud/vision';
 import { ChatGroq } from "@langchain/groq";
 import { createClient } from 'redis';
@@ -11,11 +10,6 @@ import nodemailer from 'nodemailer';
 
 // Load environment variables
 dotenv.config();
-
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
 
 // Function to send email with premium token
 async function sendTokenEmail(email, token) {
@@ -226,45 +220,50 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       base64Data = image;
     }
 
-    // Use Groq SDK for image processing directly
+    // Use Gemini for image processing (extraction)
     let aiAnswers = null;
     try {
-      console.log('Calling Groq API with image processing...');
+      console.log('Calling Gemini API with image processing...');
       const aiCallStartTime = Date.now();
 
-      const chatCompletion = await groq.chat.completions.create({
-        "messages": [
-          {
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": `Extract and return all text from the image as JSON in this format: {"extractedText": "all text from image", "questionFound": true/false, "question": "the question text if found", "options": ["first option text", "second option text", "third option text", "fourth option text"], "isProgrammingQuestion": true/false, "programmingLanguage": "desired language of solution (default to python if not mentioned)", "isTechnicalQuestion": true/false}. List options in the order they appear on screen (top to bottom or left to right) even if they are not explicitly labeled A/B/C/D - plain radio buttons or bullet points with no visible letter still count as options and questionFound should be true. Return only valid JSON, no other text.`
-              },
-
-              {
-                "type": "image_url",
-                "image_url": {
-                  "url": `data:image/png;base64,${base64Data}`
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                {
+                  text: `Extract and return all text from the image as JSON in this format: {"extractedText": "all text from image", "questionFound": true/false, "question": "the question text if found", "options": ["first option text", "second option text", "third option text", "fourth option text"], "isProgrammingQuestion": true/false, "programmingLanguage": "desired language of solution (default to python if not mentioned)", "isTechnicalQuestion": true/false}. List options in the order they appear on screen (top to bottom or left to right) even if they are not explicitly labeled A/B/C/D - plain radio buttons or bullet points with no visible letter still count as options and questionFound should be true. Return only valid JSON, no other text.`
+                },
+                {
+                  inline_data: {
+                    mime_type: 'image/png',
+                    data: base64Data
+                  }
                 }
-              }
-            ]
-          }
-        ],
-        "model": "qwen/qwen3.6-27b",
-        "temperature": 0,
-        "top_p": 1,
-        "stream": false,
-        "stop": null,
-        "reasoning_effort": "none",
-        "max_tokens": 2000
-      });
+              ]
+            }],
+            generationConfig: {
+              temperature: 0,
+              maxOutputTokens: 2000
+            }
+          })
+        }
+      );
 
       const aiCallEndTime = Date.now();
-      console.log(`Groq API call time: ${aiCallEndTime - aiCallStartTime}ms`);
+      console.log(`Gemini API call time: ${aiCallEndTime - aiCallStartTime}ms`);
 
-      if (chatCompletion && chatCompletion.choices && chatCompletion.choices[0].message.content) {
-        aiAnswers = chatCompletion.choices[0].message.content;
+      const geminiBody = await geminiResponse.json();
+      if (!geminiResponse.ok) {
+        throw new Error(geminiBody?.error?.message || `Gemini API error: ${geminiResponse.status}`);
+      }
+
+      const geminiText = geminiBody?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (geminiText) {
+        aiAnswers = geminiText;
       }
     } catch (aiError) {
       console.error('AI processing error:', aiError);
@@ -287,13 +286,13 @@ app.post('/solve-mcqs-base64', async (req, res) => {
     // Prepare the response
     const responseJson = {
       success: true,
-      message: 'Image processed successfully with Groq AI',
+      message: 'Image processed successfully',
       aiAnswers: finalans.content,
       modelUsed: modelName // Include model info in response
     };
 
     console.log(aiAnswers);
-    console.log("Processed base64 image with Groq image processing");
+    console.log("Processed base64 image with Gemini extraction + Groq solving");
     console.log(finalans.content);
 
     // Log token usage
@@ -624,16 +623,18 @@ app.post('/solve-mcqs-base64-Gemini', async (req, res) => {
     ==========================
     */
 
-    console.log("Calling Llama Vision...");
+    console.log("Calling Gemini Vision...");
 
-    const visionResponse = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `
+    const geminiVisionResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                text: `
 Extract the MCQ from the image.
 
 Return JSON ONLY in this format:
@@ -656,23 +657,29 @@ Rules:
 - Return valid JSON only
 
 `
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/png;base64,${base64Data}`
+              },
+              {
+                inline_data: {
+                  mime_type: 'image/png',
+                  data: base64Data
+                }
               }
-            }
-          ]
-        }
-      ],
-      model: "qwen/qwen3.6-27b",
-      temperature: 0,
-      max_tokens: 1000,
-      reasoning_effort: "none"
-    });
+            ]
+          }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 1000
+          }
+        })
+      }
+    );
 
-    const extractedData = visionResponse.choices[0].message.content;
+    const geminiVisionBody = await geminiVisionResponse.json();
+    if (!geminiVisionResponse.ok) {
+      throw new Error(geminiVisionBody?.error?.message || `Gemini API error: ${geminiVisionResponse.status}`);
+    }
+
+    const extractedData = geminiVisionBody?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     /*
     ==========================
