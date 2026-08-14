@@ -148,6 +148,75 @@ async function getModelForToken(token) {
   return "openai/gpt-oss-120b";
 }
 
+// Shared system prompt for solving MCQ/programming/general questions
+const MCQ_SOLVER_SYSTEM_PROMPT = "You are an AI assistant that finds MCQ questions, programming questions, or other academic questions in text and provides detailed answers. First check whether the question has multiple answer options to choose from - these may be explicitly labeled (A, B, C, D) or unlabeled (plain radio buttons, bullet points, or a list of values with no letters shown). If there are 2 or more options of any kind, it is an MCQ regardless of whether it also contains code, and you must provide ONLY a letter, nothing else - no answer text, no code, no explanations. If the options are unlabeled, assign letters yourself by their order on screen: first option = A, second = B, third = C, fourth = D, and so on. For a single question respond with just the letter, e.g. 'A'. For multiple questions, respond with one letter per line, e.g. 'A' newline 'B' newline 'C'. Only when there is only ONE possible answer with no options to choose from should you treat it as a plain programming question and provide ONLY the code solution without any explanations or additional text - format code to work with modern code editors that have smart indentation features, each new line starting at the appropriate indentation level. For other questions with no options, provide concise and accurate answers. If no relevant questions are found, respond with 'No relevant questions found.'";
+
+// Call Gemini vision with a retry, since it occasionally returns a transient "high demand" error
+async function callGeminiVision(promptText, base64Data, maxOutputTokens) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                { inline_data: { mime_type: 'image/png', data: base64Data } }
+              ]
+            }],
+            generationConfig: { temperature: 0, maxOutputTokens }
+          })
+        }
+      );
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body?.error?.message || `Gemini API error: ${res.status}`);
+      }
+      const text = body?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error('Gemini returned no content');
+      }
+      return text;
+    } catch (err) {
+      lastError = err;
+      console.log(`Gemini vision attempt ${attempt} failed: ${err.message}`);
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 800 * attempt));
+      }
+    }
+  }
+  throw lastError;
+}
+
+// Fallback solver using Gemini when Groq fails (e.g. rate limit exhausted)
+async function solveWithGemini(userContent) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: MCQ_SOLVER_SYSTEM_PROMPT }] },
+        contents: [{ parts: [{ text: userContent }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 1500 }
+      })
+    }
+  );
+  const body = await res.json();
+  if (!res.ok) {
+    throw new Error(body?.error?.message || `Gemini API error: ${res.status}`);
+  }
+  const text = body?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error('Gemini returned no content');
+  }
+  return text.trim();
+}
+
 // Function to log token usage
 function logTokenUsage(token, logEntry) {
   if (!token) return;
@@ -226,45 +295,14 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       console.log('Calling Gemini API with image processing...');
       const aiCallStartTime = Date.now();
 
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                {
-                  text: `Extract and return all text from the image as JSON in this format: {"extractedText": "all text from image", "questionFound": true/false, "question": "the question text if found", "options": ["first option text", "second option text", "third option text", "fourth option text"], "isProgrammingQuestion": true/false, "programmingLanguage": "desired language of solution (default to python if not mentioned)", "isTechnicalQuestion": true/false}. List options in the order they appear on screen (top to bottom or left to right) even if they are not explicitly labeled A/B/C/D - plain radio buttons or bullet points with no visible letter still count as options and questionFound should be true. Return only valid JSON, no other text.`
-                },
-                {
-                  inline_data: {
-                    mime_type: 'image/png',
-                    data: base64Data
-                  }
-                }
-              ]
-            }],
-            generationConfig: {
-              temperature: 0,
-              maxOutputTokens: 2000
-            }
-          })
-        }
+      aiAnswers = await callGeminiVision(
+        `Extract and return all text from the image as JSON in this format: {"extractedText": "all text from image", "questionFound": true/false, "question": "the question text if found", "options": ["first option text", "second option text", "third option text", "fourth option text"], "isProgrammingQuestion": true/false, "programmingLanguage": "desired language of solution (default to python if not mentioned)", "isTechnicalQuestion": true/false}. List options in the order they appear on screen (top to bottom or left to right) even if they are not explicitly labeled A/B/C/D - plain radio buttons or bullet points with no visible letter still count as options and questionFound should be true. Return only valid JSON, no other text.`,
+        base64Data,
+        2000
       );
 
       const aiCallEndTime = Date.now();
       console.log(`Gemini API call time: ${aiCallEndTime - aiCallStartTime}ms`);
-
-      const geminiBody = await geminiResponse.json();
-      if (!geminiResponse.ok) {
-        throw new Error(geminiBody?.error?.message || `Gemini API error: ${geminiResponse.status}`);
-      }
-
-      const geminiText = geminiBody?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (geminiText) {
-        aiAnswers = geminiText;
-      }
     } catch (aiError) {
       console.error('AI processing error:', aiError);
       aiAnswers = "AI processing failed: " + aiError.message;
@@ -278,27 +316,36 @@ app.post('/solve-mcqs-base64', async (req, res) => {
       apiKey: process.env.GROQ_API_KEY, // Use environment variable only
     });
 
-    const finalans = await solverModel.invoke([
-      ["system", "You are an AI assistant that finds MCQ questions, programming questions, or other academic questions in text and provides detailed answers. First check whether the question has multiple answer options to choose from - these may be explicitly labeled (A, B, C, D) or unlabeled (plain radio buttons, bullet points, or a list of values with no letters shown). If there are 2 or more options of any kind, it is an MCQ regardless of whether it also contains code, and you must provide ONLY a letter, nothing else - no answer text, no code, no explanations. If the options are unlabeled, assign letters yourself by their order on screen: first option = A, second = B, third = C, fourth = D, and so on. For a single question respond with just the letter, e.g. 'A'. For multiple questions, respond with one letter per line, e.g. 'A' newline 'B' newline 'C'. Only when there is only ONE possible answer with no options to choose from should you treat it as a plain programming question and provide ONLY the code solution without any explanations or additional text - format code to work with modern code editors that have smart indentation features, each new line starting at the appropriate indentation level. For other questions with no options, provide concise and accurate answers. If no relevant questions are found, respond with 'No relevant questions found.'"],
-      ["user", aiAnswers]
-    ]);
+    let finalAnswerText;
+    let solverUsed = modelName;
+    try {
+      const finalans = await solverModel.invoke([
+        ["system", MCQ_SOLVER_SYSTEM_PROMPT],
+        ["user", aiAnswers]
+      ]);
+      finalAnswerText = finalans.content;
+    } catch (solveError) {
+      console.error('Groq solver failed, falling back to Gemini:', solveError);
+      finalAnswerText = await solveWithGemini(aiAnswers);
+      solverUsed = 'gemini-flash-latest (fallback)';
+    }
 
     // Prepare the response
     const responseJson = {
       success: true,
       message: 'Image processed successfully',
-      aiAnswers: finalans.content,
-      modelUsed: modelName // Include model info in response
+      aiAnswers: finalAnswerText,
+      modelUsed: solverUsed // Include model info in response
     };
 
     console.log(aiAnswers);
-    console.log("Processed base64 image with Gemini extraction + Groq solving");
-    console.log(finalans.content);
+    console.log("Processed base64 image with Gemini extraction + " + solverUsed + " solving");
+    console.log(finalAnswerText);
 
     // Log token usage
     logTokenUsage(token, {
-      modelUsed: modelName,
-      aiAnswers: finalans.content,
+      modelUsed: solverUsed,
+      aiAnswers: finalAnswerText,
       fileId: "base64-upload",
       filePath: "in-memory"
     });
@@ -625,16 +672,8 @@ app.post('/solve-mcqs-base64-Gemini', async (req, res) => {
 
     console.log("Calling Gemini Vision...");
 
-    const geminiVisionResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                text: `
+    const extractedData = await callGeminiVision(
+      `
 Extract the MCQ from the image.
 
 Return JSON ONLY in this format:
@@ -656,30 +695,10 @@ Rules:
 - Include any text needed to solve the question
 - Return valid JSON only
 
-`
-              },
-              {
-                inline_data: {
-                  mime_type: 'image/png',
-                  data: base64Data
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 1000
-          }
-        })
-      }
+`,
+      base64Data,
+      1000
     );
-
-    const geminiVisionBody = await geminiVisionResponse.json();
-    if (!geminiVisionResponse.ok) {
-      throw new Error(geminiVisionBody?.error?.message || `Gemini API error: ${geminiVisionResponse.status}`);
-    }
-
-    const extractedData = geminiVisionBody?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     /*
     ==========================
